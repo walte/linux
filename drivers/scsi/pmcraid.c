@@ -1512,7 +1512,8 @@ static int pmcraid_notify_aen(
 	}
 
 	result =
-		genlmsg_multicast(skb, 0, pmcraid_event_family.id, GFP_ATOMIC);
+		genlmsg_multicast(&pmcraid_event_family, skb, 0,
+				  pmcraid_event_family.id, GFP_ATOMIC);
 
 	/* If there are no listeners, genlmsg_multicast may return non-zero
 	 * value.
@@ -3599,19 +3600,6 @@ static int pmcraid_chr_open(struct inode *inode, struct file *filep)
 }
 
 /**
- * pmcraid_release - char node "release" entry point
- */
-static int pmcraid_chr_release(struct inode *inode, struct file *filep)
-{
-	struct pmcraid_instance *pinstance = filep->private_data;
-
-	filep->private_data = NULL;
-	fasync_helper(-1, filep, 0, &pinstance->aen_queue);
-
-	return 0;
-}
-
-/**
  * pmcraid_fasync - Async notifier registration from applications
  *
  * This function adds the calling process to a driver global queue. When an
@@ -4167,7 +4155,6 @@ static long pmcraid_chr_ioctl(
 static const struct file_operations pmcraid_fops = {
 	.owner = THIS_MODULE,
 	.open = pmcraid_chr_open,
-	.release = pmcraid_chr_release,
 	.fasync = pmcraid_chr_fasync,
 	.unlocked_ioctl = pmcraid_chr_ioctl,
 #ifdef CONFIG_COMPAT
@@ -6063,7 +6050,6 @@ out_release_regions:
 
 out_disable_device:
 	atomic_dec(&pmcraid_adapter_count);
-	pci_set_drvdata(pdev, NULL);
 	pci_disable_device(pdev);
 	return -ENODEV;
 }
@@ -6106,7 +6092,7 @@ static int __init pmcraid_init(void)
 
 	if (IS_ERR(pmcraid_class)) {
 		error = PTR_ERR(pmcraid_class);
-		pmcraid_err("failed to register with with sysfs, error = %x\n",
+		pmcraid_err("failed to register with sysfs, error = %x\n",
 			    error);
 		goto out_unreg_chrdev;
 	}

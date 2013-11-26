@@ -308,7 +308,7 @@ void saa7134_buffer_finish(struct saa7134_dev *dev,
 
 	/* finish current buffer */
 	q->curr->vb.state = state;
-	do_gettimeofday(&q->curr->vb.ts);
+	v4l2_get_timestamp(&q->curr->vb.ts);
 	wake_up(&q->curr->vb.done);
 	q->curr = NULL;
 }
@@ -805,6 +805,7 @@ static struct video_device *vdev_init(struct saa7134_dev *dev,
 	vfd->debug   = video_debug;
 	snprintf(vfd->name, sizeof(vfd->name), "%s %s (%s)",
 		 dev->name, type, saa7134_boards[dev->board].name);
+	set_bit(V4L2_FL_USE_FH_PRIO, &vfd->flags);
 	video_set_drvdata(vfd, dev);
 	return vfd;
 }
@@ -991,7 +992,7 @@ static int saa7134_initdev(struct pci_dev *pci_dev,
 
 	/* get irq */
 	err = request_irq(pci_dev->irq, saa7134_irq,
-			  IRQF_SHARED | IRQF_DISABLED, dev->name, dev);
+			  IRQF_SHARED, dev->name, dev);
 	if (err < 0) {
 		printk(KERN_ERR "%s: can't get IRQ %d\n",
 		       dev->name,pci_dev->irq);
@@ -1027,8 +1028,6 @@ static int saa7134_initdev(struct pci_dev *pci_dev,
 			dev->has_rds = 1;
 		}
 	}
-
-	v4l2_prio_init(&dev->prio);
 
 	mutex_lock(&saa7134_devlist_lock);
 	list_for_each_entry(mops, &mops_list, next)

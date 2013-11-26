@@ -84,22 +84,30 @@ static ssize_t dev_nvram_read(struct file *file, char __user *buf,
 	char *tmp = NULL;
 	ssize_t size;
 
-	ret = -ENODEV;
-	if (!ppc_md.nvram_size)
+	if (!ppc_md.nvram_size) {
+		ret = -ENODEV;
 		goto out;
+	}
 
-	ret = 0;
 	size = ppc_md.nvram_size();
-	if (*ppos >= size || size < 0)
+	if (size < 0) {
+		ret = size;
 		goto out;
+	}
+
+	if (*ppos >= size) {
+		ret = 0;
+		goto out;
+	}
 
 	count = min_t(size_t, count, size - *ppos);
 	count = min(count, PAGE_SIZE);
 
-	ret = -ENOMEM;
 	tmp = kmalloc(count, GFP_KERNEL);
-	if (!tmp)
+	if (!tmp) {
+		ret = -ENOMEM;
 		goto out;
+	}
 
 	ret = ppc_md.nvram_read(tmp, count, ppos);
 	if (ret <= 0)
@@ -215,9 +223,13 @@ static int __init nvram_write_header(struct nvram_partition * part)
 {
 	loff_t tmp_index;
 	int rc;
-	
+	struct nvram_header phead;
+
+	memcpy(&phead, &part->header, NVRAM_HEADER_LEN);
+	phead.length = cpu_to_be16(phead.length);
+
 	tmp_index = part->index;
-	rc = ppc_md.nvram_write((char *)&part->header, NVRAM_HEADER_LEN, &tmp_index); 
+	rc = ppc_md.nvram_write((char *)&phead, NVRAM_HEADER_LEN, &tmp_index);
 
 	return rc;
 }
@@ -497,6 +509,8 @@ int __init nvram_scan_partitions(void)
 
 		memcpy(&phead, header, NVRAM_HEADER_LEN);
 
+		phead.length = be16_to_cpu(phead.length);
+
 		err = 0;
 		c_sum = nvram_checksum(&phead);
 		if (c_sum != phead.checksum) {
@@ -511,8 +525,7 @@ int __init nvram_scan_partitions(void)
 			       "detected: 0-length partition\n");
 			goto out;
 		}
-		tmp_part = (struct nvram_partition *)
-			kmalloc(sizeof(struct nvram_partition), GFP_KERNEL);
+		tmp_part = kmalloc(sizeof(struct nvram_partition), GFP_KERNEL);
 		err = -ENOMEM;
 		if (!tmp_part) {
 			printk(KERN_ERR "nvram_scan_partitions: kmalloc failed\n");

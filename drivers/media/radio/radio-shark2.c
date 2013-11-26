@@ -237,6 +237,7 @@ static void shark_unregister_leds(struct shark_device *shark)
 	cancel_work_sync(&shark->led_work);
 }
 
+#ifdef CONFIG_PM
 static void shark_resume_leds(struct shark_device *shark)
 {
 	int i;
@@ -246,11 +247,12 @@ static void shark_resume_leds(struct shark_device *shark)
 
 	schedule_work(&shark->led_work);
 }
+#endif
 #else
 static int shark_register_leds(struct shark_device *shark, struct device *dev)
 {
 	v4l2_warn(&shark->v4l2_dev,
-		  "CONFIG_LED_CLASS not enabled, LED support disabled\n");
+		  "CONFIG_LEDS_CLASS not enabled, LED support disabled\n");
 	return 0;
 }
 static inline void shark_unregister_leds(struct shark_device *shark) { }
